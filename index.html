@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>INDEX – 81(1) → 729 · ZEUGEND</title>
+<style>
+  :root{--bg:#08080a;--sf:#101015;--bd:#2a2a3a;--gold:#f0d080;--tx:#e8e6df;--mu:#8a8990;--gn:#7cfc00;--rd:#ff453a}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--tx);font-family:ui-monospace,Menlo,monospace;height:100%;overflow:hidden}
+  body{display:flex;flex-direction:column}
+  header{padding:10px 14px;border-bottom:1px solid var(--bd);background:var(--sf);display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  header b{color:var(--gold);letter-spacing:.2em}
+  button{font:inherit;font-size:11px;padding:6px 12px;border:1px solid var(--bd);background:transparent;color:var(--mu);cursor:pointer;border-radius:6px}
+  button:hover{color:var(--tx);border-color:var(--gold)}
+  button.on{background:var(--gold);color:#000;border-color:var(--gold);font-weight:700}
+  main{flex:1;display:grid;grid-template-columns:1fr 320px;min-height:0}
+  @media(max-width:800px){main{grid-template-columns:1fr}}
+  .left{display:flex;flex-direction:column;min-height:0}
+  .tier{padding:8px 14px;border-bottom:1px solid var(--bd);font-size:10px;letter-spacing:.14em;color:var(--mu);display:flex;gap:8px;align-items:center}
+  .tier b{color:var(--gold)}
+  .grid{flex:1;display:grid;grid-template-columns:repeat(9,1fr);gap:3px;padding:14px;min-height:0;overflow:auto;align-content:start}
+  .cell{aspect-ratio:1;border:1px solid var(--bd);background:#0a0a12;border-radius:3px;font-size:9px;display:grid;place-items:center;color:var(--mu);cursor:pointer;transition:.12s;position:relative}
+  .cell:hover{border-color:var(--gold);color:var(--gold)}
+  .cell.sel{background:var(--gold);color:#000;font-weight:700;border-color:var(--gold)}
+  .cell.on{border-color:var(--gn);color:var(--gn)}
+  .cell.bad{border-color:var(--rd);color:var(--rd)}
+  .cell small{position:absolute;bottom:1px;right:2px;font-size:7px;opacity:.6}
+  .right{display:flex;flex-direction:column;border-left:1px solid var(--bd);background:var(--sf);min-height:0}
+  .detail{padding:12px;border-bottom:1px solid var(--bd);font-size:11px;line-height:1.6}
+  .detail h3{margin:0 0 6px;color:var(--gold);font-size:11px;letter-spacing:.16em}
+  .detail .kv{display:flex;justify-content:space-between;padding:2px 0;border-bottom:1px dashed rgba(255,255,255,.06)}
+  .detail .kv b{color:var(--gold)}
+  .log{flex:1;overflow:auto;padding:10px 12px;font-size:10px;line-height:1.5;color:var(--mu);min-height:0}
+  .log .ok{color:var(--gn)}.log .warn{color:var(--gold)}.log .err{color:var(--rd)}
+  .log div{padding:1px 0}
+  textarea{width:100%;height:120px;background:#050508;color:var(--tx);border:1px solid var(--bd);border-radius:6px;padding:8px;font:inherit;font-size:10px;resize:vertical;outline:none}
+  textarea:focus{border-color:var(--gold)}
+  .yamlbox{padding:10px;border-bottom:1px solid var(--bd);display:flex;flex-direction:column;gap:6px}
+  .badge{font-size:9px;padding:1px 6px;border:1px solid var(--bd);border-radius:99px;color:var(--mu)}
+</style>
+</head>
+<body>
+<header>
+  <b>INDEX 81(1)</b>
+  <span class="badge" id="tier-badge">TIER 9 × 9 = 81</span>
+  <button id="run">↻ GENERATE</button>
+  <button id="verify">✓ VERIFY</button>
+  <button id="to729">▲ 729</button>
+  <span style="margin-left:auto;font-size:10px;color:var(--mu)" id="stat">—</span>
+</header>
+<main>
+  <div class="left">
+    <div class="tier" id="crumb">EBENE <b>9</b> · SEKTOR <b>—</b> · ZELLE <b>—</b></div>
+    <div class="grid" id="grid"></div>
+  </div>
+  <div class="right">
+    <div class="yamlbox">
+      <div style="font-size:10px;letter-spacing:.16em;color:var(--gold)">SEED (YAML-lite)</div>
+      <textarea id="yaml" spellcheck="false">seed: 1
+mass: 85
+compat: 0.85
+groups: 9
+sub: 9</textarea>
+      <div style="font-size:9px;color:var(--mu)">seed → deterministische 81 Zellen. mass/compat = Basiswerte.</div>
+    </div>
+    <div class="detail" id="detail">
+      <h3>ZELLE</h3>
+      <div style="color:var(--mu)">Klicke eine Zelle</div>
+    </div>
+    <div class="log" id="log"></div>
+  </div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+
+/* ===== YAML-LITE PARSER (ersetzt js-yaml für diese Felder) ===== */
+function parseYaml(text){
+  const out = {};
+  for (const line of text.split(/\r?\n/)){
+    const m = line.match(/^(\w+)\s*:\s*(.+)$/);
+    if (!m) continue;
+    const k = m[1], v = m[2].trim();
+    const n = Number(v);
+    out[k] = isNaN(n) ? v : n;
+  }
+  return out;
+}
+
+/* ===== GENERATOR (ersetzt /br/generator.js) ===== */
+function generator(cfg){
+  // Deterministische 81 Zellen aus seed × group × sub
+  // 9 Gruppen × 9 Unterzellen = 81(1)
+  const cells = [];
+  const groups = cfg.groups || 9;
+  const sub = cfg.sub || 9;
+  for (let g = 0; g < groups; g++){
+    for (let s = 0; s < sub; s++){
+      const idx = g * sub + s;
+      // PRNG-Ersatz: hash aus seed×g×s
+      const h = ((cfg.seed * 2654435761) ^ (g * 40503) ^ (s * 65599)) >>> 0;
+      const r = (h % 1000) / 1000;         // 0..1
+      const mass = Math.round((cfg.mass || 85) * (0.5 + r * 1.2));
+      const compat = Math.min(1, Math.max(0, (cfg.compat || 0.85) * (0.7 + (h % 300) / 1000)));
+      const state = compat >= 0.85 ? 'SEALED' : compat >= 0.6 ? 'COHERENT' : 'LOOSE';
+      cells.push({ idx, g, s, mass, compat, state, hash: h.toString(16) });
+    }
+  }
+  return { cfg, cells, count: cells.length };
+}
+
+/* ===== AUTOSCAN (ersetzt /br/borg_autoscan.js) ===== */
+function borgAutoScan(){
+  // Was ist real im DOM? Zähle Elemente, Daten, IDs.
+  const all = document.querySelectorAll('*');
+  const dataCells = document.querySelectorAll('[data-cell]');
+  const ids = [...new Set([...all].map(e => e.id).filter(Boolean))];
+  return {
+    nodes: all.length,
+    cells: dataCells.length,
+    ids,
+    ts: Date.now()
+  };
+}
+
+/* ===== VERIFY (ersetzt /br/borg_verify.js) ===== */
+function borgVerify(data, scan){
+  const report = [];
+  let ok = 0, bad = 0;
+  // 1) Anzahl
+  if (data.cells.length === scan.cells){
+    report.push({level:'ok', msg:`Anzahl: ${data.cells.length} = ${scan.cells} ✓`});
+    ok++;
+  } else {
+    report.push({level:'err', msg:`Anzahl mismatch: ${data.cells.length} ≠ ${scan.cells}`});
+    bad++;
+  }
+  // 2) Jede Zelle im DOM vorhanden?
+  const domCells = new Set([...document.querySelectorAll('[data-cell]')].map(e => +e.dataset.cell));
+  let missing = 0;
+  for (const c of data.cells) if (!domCells.has(c.idx)) missing++;
+  if (missing === 0){
+    report.push({level:'ok', msg:`Alle 81 Zellen im DOM ✓`});
+    ok++;
+  } else {
+    report.push({level:'warn', msg:`${missing} Zellen im DOM fehlen`});
+  }
+  // 3) SEALED-Zellen sichtbar?
+  const sealed = data.cells.filter(c => c.state === 'SEALED').length;
+  report.push({level:'warn', msg:`SEALED: ${sealed}/${data.cells.length}`});
+  // 4) Kompatibilitätsdurchschnitt
+  const avg = data.cells.reduce((s, c) => s + c.compat, 0) / data.cells.length;
+  report.push({level:'ok', msg:`Ø compat: ${avg.toFixed(3)}`});
+  return { ok, bad, report, avg };
+}
+
+/* ===== STATE ===== */
+const S = {
+  data: null, scan: null, verify: null,
+  sel: null, tier: 9, groupSel: null
+};
+
+/* ===== RENDER ===== */
+function renderGrid(){
+  const grid = $('grid');
+  grid.innerHTML = '';
+  if (!S.data) return;
+  const cells = S.data.cells;
+  for (const c of cells){
+    const el = document.createElement('button');
+    el.className = 'cell';
+    el.dataset.cell = c.idx;
+    el.textContent = c.idx;
+    el.title = `G${c.g} S${c.s} · m${c.mass} · c${(c.compat*100).toFixed(0)}%`;
+    el.innerHTML = `${c.idx}<small>${(c.compat*100).toFixed(0)}</small>`;
+    if (c.state === 'SEALED') el.classList.add('on');
+    if (c.state === 'LOOSE') el.classList.add('bad');
+    if (S.sel === c.idx) el.classList.add('sel');
+    el.onclick = () => { S.sel = c.idx; renderGrid(); renderDetail(c); };
+    grid.appendChild(el);
+  }
+  $('stat').textContent = `${cells.length} Zellen · Tier ${S.tier}`;
+}
+
+function renderDetail(c){
+  const d = $('detail');
+  d.innerHTML = `
+    <h3>ZELLE ${c.idx}</h3>
+    <div class="kv"><span>Gruppe</span><b>${c.g}</b></div>
+    <div class="kv"><span>Sub</span><b>${c.s}</b></div>
+    <div class="kv"><span>Mass</span><b>${c.mass}</b></div>
+    <div class="kv"><span>Compat</span><b>${(c.compat*100).toFixed(1)}%</b></div>
+    <div class="kv"><span>State</span><b style="color:${c.state==='SEALED'?'var(--gn)':c.state==='COHERENT'?'var(--gold)':'var(--rd)'}">${c.state}</b></div>
+    <div class="kv"><span>Hash</span><b>${c.hash}</b></div>
+  `;
+  $('crumb').innerHTML = `EBENE <b>9</b> · SEKTOR <b>${c.g}</b> · ZELLE <b>${c.idx}</b>`;
+}
+
+function renderLog(){
+  const log = $('log');
+  log.innerHTML = '';
+  if (S.verify){
+    for (const r of S.verify.report){
+      const d = document.createElement('div');
+      d.className = r.level;
+      d.textContent = '· ' + r.msg;
+      log.appendChild(d);
+    }
+    const sum = document.createElement('div');
+    sum.className = 'warn';
+    sum.textContent = `→ ok ${S.verify.ok} · bad ${S.verify.bad}`;
+    log.appendChild(sum);
+  }
+  if (S.scan){
+    const d = document.createElement('div');
+    d.className = 'ok';
+    d.textContent = `scan: ${S.scan.nodes} nodes · ${S.scan.cells} cells · ${S.scan.ids.length} ids`;
+    log.appendChild(d);
+  }
+}
+
+/* ===== ACTIONS ===== */
+function runGenerate(){
+  const cfg = parseYaml($('yaml').value);
+  S.data = generator(cfg);
+  S.sel = null;
+  renderGrid();
+  renderLog();
+  $('crumb').innerHTML = `EBENE <b>9</b> · SEKTOR <b>—</b> · ZELLE <b>—</b>`;
+  $('detail').innerHTML = '<h3>ZELLE</h3><div style="color:var(--mu)">Klicke eine Zelle</div>';
+}
+
+function runVerify(){
+  if (!S.data) return;
+  S.scan = borgAutoScan();
+  S.verify = borgVerify(S.data, S.scan);
+  renderLog();
+  renderGrid(); // mark missing/ok
+}
+
+function to729(){
+  // 81 → 729: jede Zelle expandiert zu 9 Unterzellen
+  const grid = $('grid');
+  grid.innerHTML = '';
+  grid.style.gridTemplateColumns = 'repeat(27,1fr)';
+  grid.style.fontSize = '7px';
+  const total = 81 * 9;
+  for (let i = 0; i < total; i++){
+    const el = document.createElement('div');
+    el.className = 'cell';
+    el.style.fontSize = '7px';
+    el.textContent = i;
+    grid.appendChild(el);
+  }
+  S.tier = 729;
+  $('stat').textContent = `729 Zellen · Tier 729`;
+  $('tier-badge').textContent = 'TIER 729';
+  $('crumb').innerHTML = `EBENE <b>27</b> · 729 = 81 × 9`;
+  // zurück nach 1.5s
+  setTimeout(() => {
+    grid.style.gridTemplateColumns = 'repeat(9,1fr)';
+    S.tier = 9;
+    $('tier-badge').textContent = 'TIER 9 × 9 = 81';
+    renderGrid();
+  }, 1800);
+}
+
+/* ===== BOOT ===== */
+$('run').onclick = runGenerate;
+$('verify').onclick = runVerify;
+$('to729').onclick = to729;
+
+// auto-run beim Start
+runGenerate();
+</script>
+</body>
+</html>
